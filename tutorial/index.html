@@ -1,498 +1,582 @@
 <!-- <html> -->
 <head>
-    <title>Hello Akka Template</title>
+    <title>Akka Callcenter Template</title>
 </head>
 
 <body>
 
 <div>
-    <p>You've just created a simple Akka application! Now lets explore the code and make some changes.</p>
     <p>
-    In short, <a href="http://akka.io">Akka</a> is a toolkit and runtime for building highly concurrent,
-    distributed, and fault-tolerant event-driven applications on the JVM. Akka can be used with both Java
-    and Scala. One of the most powerful features of Akka is its <a href="http://en.wikipedia.org/wiki/Actor_model">
-    Actor Model</a> of concurrency, which you will learn more about in this tutorial.
+    This template demonstrates the creation and operation of a call center.
     </p>
-    <p>Akka can be used from either Java or Scala and this tutorial has both Java and Scala sample code.</p>
 
-    <h2>Source code</h2>
+    <h2>Overview</h2>
+    
+    <p><h3>Building parts</h3></p>
 
     <p>
-    The <a href="#code/src/main/java" class="shortcut">java</a> directory contains the Java
-    source code <a href="#code/src/main/java/HelloAkkaJava.java" class="shortcut">HelloAkkaJava.java</a>
-    and the <a href="#code/src/main/scala" class="shortcut">scala</a> directory contains the Scala
-    source code <a href="#code/src/main/scala/HelloAkkaScala.scala" class="shortcut">HelloAkkaScala.scala</a>.
-    </p>
-    <p>
-    The sample in this tutorial is pretty simple; it consists of a <code>Greeter</code> Actor who holds
-    onto the latest defined <code>greeting</code> string and can respond to two actions; set a new greeting
-    string and return the latest greeting string.
-    </p>
-    <p>
-    Next let's get started.
-    </p>
-</div>
-
-<div>
-    <h2>Define our Messages</h2>
-    <p>
-    An Actor does not have a public API in terms of methods that you can invoke. Instead its public
-    API is defined through messages that the actor handles. Messages can be of arbitrary
-    type (any subtype of <code>Object</code> in Java or <code>Any</code> in Scala).  This means that we
-    can send boxed primitive values (such as <code>String</code>, <code>Integer</code>,
-    <code>Boolean</code> etc.) as messages or plain data structures like arrays and
-    collection types. However, since the messages are the Actor's public API, you should define
-    messages with good names and rich semantic and domain specific meaning, even if it's just wrapping
-    your data type. This will make it easier to use, understand and debug actor-based systems.
-    </p>
-    <p>
-     Now we want to define three different messages;
-     <ul>
-      <li><code>WhoToGreet</code> redefines the new greeting</li>
-      <li><code>Greet</code> asks the Actor for latest greeting</li>
-      <li><code>Greeting</code> returns the latest greeting</li>
+    The <a href="#code/src/main/scala/com/akka/callcenter" class="shortcut">scala</a> directory contains the Scala
+    source code. In detail the following files are contained within this directory referring to the main building parts of the application:
+    <ul>
+      <li><a href="#code/src/main/scala/com/akka/callcenter/Main.scala" class="shortcut">Main.scala</a>: Sets up the environment and triggers some service requests from customers</li>
+      <li><a href="#code/src/main/scala/com/akka/callcenter/CallCenter.scala" class="shortcut">CallCenter.scala</a>: Describes the callcenter itself</li>
+      <li><a href="#code/src/main/scala/com/akka/callcenter/Agent.scala" class="shortcut">Agent.scala</a>: Describes an agent of a callcenter</li>
+      <li><a href="#code/src/main/scala/com/akka/callcenter/AgentSupervisor.scala" class="shortcut">AgentSupervisor.scala</a>: Describes an agent supervisor for a set of agents</li>
+      <li><a href="#code/src/main/scala/com/akka/callcenter/Company.scala" class="shortcut">Company.scala</a>: The company has departments referring to agent supervisors</li>
+      <li><a href="#code/src/main/scala/com/akka/callcenter/Customer.scala" class="shortcut">Customer.scala</a>: A customer asks the callcenter for a service</li>
     </ul>
     </p>
     <p>
-    Let's start by defining the messages in Java (we are putting them inside an outer <a href="#code/src/main/java/HelloAkkaJava.java"
-    class="shortcut">HelloAkkaJava</a> class,
-    containing our full sample). It is <b>very important</b> that the messages we create are immutable (meaning that
-    they cannot be changed), if not we run the risk of accidentally sharing state between two different Actors
-    which will violate the Actor Model. In this sample we will not use any remoting, but it is a good practice to
-    always mark your messages as <code>Serializable</code> since then you will not run in to any runtime issues if
-    you decide to scale out (on to multiple nodes) with Akka but forget to go back and reimplement your messages.
-        <pre><code>
-// Java code
-
-public static class Greet implements Serializable {}
-
-public static class WhoToGreet implements Serializable {
-    public final String who;
-    public WhoToGreet(String who) {
-        this.who = who;
-    }
-}
-
-public static class Greeting implements Serializable {
-    public final String message;
-    public Greeting(String message) {
-        this.message = message;
-    }
-}
-        </code></pre>
+    In the following sections this tutorial describes these different building parts of the 
+    callcenter from a business point of view as well as from a technical point of view.
     </p>
-    <p>
-    This is the way we would define the messages in Scala.  In Scala case classes and case objects make
-    excellent messages since they are immutable and have support for pattern matching, something we will
-    take advantage of in the Actor when matching on the messages it has received. Another advantage case
-    classes has is that they are marked as serializable by default.
-        <pre><code>
-// Scala code
 
-case object Greet
-case class WhoToGreet(who: String)
-case class Greeting(message: String)
-        </code></pre>
+    <p><h3>Business Context</h3></p>
+    <p>
+    Describes the business context, which means the application background of the callcenter. 
+    </p>
+    
+    <p><h3>Technical Details</h3></p>
+    <p>
+    Describes the technical background of the call center. This includes the following Akka and Scala specific features:
+        <ul>
+            <li>Building Scala composite objects by traits and self type annotations</li>
+            <li>Building Akka supervisor and actor hierarchies</li>
+            <li>Using an Akka Router for broadcasting</li>
+            <li>Using simple Akka state management</li>
+            <li>Using Akka futures</li>
+            <li>Using Akka Asynchronous Call Pattern without futures</li>
+            <li>Using the Typesafe configuration package</li>
+        </ul>
     </p>
 </div>
 
 <div>
-    <h2>Define our Actor</h2>
-
+    <h2>Main</h2>
     <p>
-    The Actor is the unit of execution in Akka.  Actors are object-oriented in the sense that they encapsulate
-    state and behavior, but they have much stronger isolation than regular objects in Java or Scala. The Actor
-    model prevents sharing state between Actors and the only way to observe another actor's state is by sending
-    it a message asking for it. Actors are extremely lightweight, they are only constrained by memory of which
-    they consume only a few hundred bytes each &#8212; this means you can easily create millions of concurrent
-    Actors in a single application. Their strong isolation principles together with the event-driven model (that
-    we will talk about later on) and location transparency makes it easy to solve hard concurrency and scalability
-    problems in an intuitive way.
-    </p>
-    <p>
-    You create an Actor in Java by defining a class that extends <code>UntypedActor</code> and implement the
-    <code>onReceive</code> method (in Scala you have to extend <code>Actor</code> trait and implement the
-    <code>receive</code> method). It is in the <code>onReceive</code> method that you define the behavior; how
-    the Actor should react to the different messages it receives.  An Actor can have &#8212; and often has &#8212;
-    state.  Accessing or mutating the internal state of an Actor is fully thread safe since protected by the Actor model.
-    </p>
-    <p>
-    So, let's now create a <code>Greeter</code> Actor with a single variable <code>greeting</code> as its state, holding on to the latest
-    defined greeting, and in its <code>onReceive</code> method let's add the behavior for how it should react upon receiving
-    the <code>WhoToGreet</code> and the <code>Greet</code> messages.
-    </p>
-    <p>
-    Let's start by creating our Actor in Java (you can find the code in the <a href="#code/src/main/java/HelloAkkaJava.java"
-     class="shortcut">HelloAkkaJava.java</a> file):
-        <pre><code>
-// Java code
+        The Main-object first of all sets up the call center environment during initialization 
+<pre>
+    <code>
+val system = ActorSystem("CallCenterSimulation")
+val company = system.actorOf(Props(Company()), "Company")
+val customer = system.actorOf(Props((Customer())), "Customer")
+val callCenter = system.actorOf(Props(CallCenter(company)), "CallCenter")
+    </code>
+</pre>            
+      In the main-method it triggers an arbitrarly number of
+        customer service requests of the form
+<pre>
+    <code>
+val (callNumber, skill) = Await.result((customer ? Customer.GetCallNumber).mapTo[(CallNumber, Skill)], 5.seconds)
 
-public static class Greeter extends UntypedActor {
-    String greeting = "";
-
-    public void onReceive(Object message) {
-        if (message instanceof WhoToGreet)
-            greeting = "hello, " + ((WhoToGreet) message).who;
-
-        else if (message instanceof Greet)
-            getSender().tell(new Greeting(greeting), getSelf());
-
-        else unhandled(message);
-    }
+system.scheduler.scheduleOnce(200.millis) {
+  callCenter ! CallCenter.CustomerCall(callNumber,
+    skill)
 }
-        </code></pre>
-    </p>
+    </code>
+</pre>        
+</p>
+    
+<p>
+    <h3>Typesafe Console</h3>
+    The workload of system can be visualized by the Typesafe Console.
     <p>
-    Actors like this one are “untyped” in the sense that the type of message received is not restricted—it is 
-    <code>Object</code> as shown above. There are also typed actors, but we will 
-    not concern ourselves with those now, the normal actors are the untyped ones.
+    <img src="tutorial/callCenterTypesafeConsole.png"  width="600" height="300">
     </p>
-    <p>
-    Don't worry about the <code>getSender()</code>, <code>tell(..)</code> and <code>getSelf()</code> API calls,
-    we will get to that soon when we talk about sending and replying to messages.
-    </p>
-    <p>
-    Now let's implement it in Scala. As you can see, Scala's pattern matching features really simplify working
-    with Actors, but apart from that it's pretty similar to the Java version (you can find the code in the
-    <a href="#code/src/main/scala/HelloAkkaScala.scala" class="shortcut">HelloAkkaScala.scala</a> file).
-        <pre><code>
-// Scala code
+</p>    
+    
+</div>
 
-class Greeter extends Actor {
-  var greeting = ""
+<div>
+    <h2>Call Center</h2>
+    <p><h3>Business Context</h3></p>
+    <p>Once an environment designed to process telephone calls, call centers have evolved to become 
+    customer contact centers, processing all types of media transactions. The contact center is now seen as 
+    the core of a business due to its critical role in maximizing customer retention by enabling companies 
+    to deliver a definitive customer experience. Its integral parts consist of:
+    <ul>
+        <li>Representatives who handle customer transactions (also called agents)</li>
+        <li>Management personnel</li>
+        <li>Technology to handle customer transactions, including the routing, treatment, and fulfilment of the transaction.
+        A contact center may be found within a department in a company or it may be the sole business unit that comprises
+        the company.</li>
+    </ul>
+    </p>
+    <p>
+    A call center has a unique reference to a company which manages departments. For each department there exist
+    an agent supervisor which is responsible for a set of agents and the routing of requests to the appropriate agents.
+    </p>
+    <p>
+    The current template only focuses on the request handling functionality of a call center. This means that 
+    the call center services an arbitrary set of telephone numbers which each number belonging to a department inside
+    the company. When a call comes in from a customer the call center analyzes the call number to determine the 
+    responsible department. The department specific agent supervisor is then informed to route the request to the 
+    appropriate agent depending on the agent skills and the work status of the agent.
+    </p>
+   <p><h3>Technical Details</h3></p>
+   <h4><b>General</b></h4>
+   <p>The <code>CallCenter</code> is the root of an actor hierarchy and describes the main starting point for routing 
+   incoming calls from customers. To handle those requests the call center sets up agent supervisors 
+   (one for each department) and as a <code>RoutingProvider</code> initializes the Routing, which determines the 
+   correct supervisor to route the call to.</p>
+   <h4><b>Scala Component Structure</b></h4>
+   <p>The <code>CallCenter</code> structure is a typical example for how Scala-classes are designed throughout this template.
+   The following Scala design principles are used:
+    <ul>
+        <li><b>Self-type annotation</b>: One can use self-type annotations to specify additional types that 
+        the self object <code>this</code> can take within the class. In this case there a two traits 
+        <code>AgentSupervisorProvider</code> and <code>RoutingProvider</code> used for the annotation.
+        Its almost like saying <code>class CallCenter extends AgentSupervisorProvider with RoutingProvider</code> but 
+        saying it implicitly. The compile time dependency is not created at this time. The self-type annotation 
+        indicates a promise that the two Provider-classes will be mixed in during any concrete instantiation of the object.
+        </li>
+        <li><b>Mixin-Composition</b>: 
+         In order to make the class flexible enough to for example use it in test as well as in production mode
+         mixin-composition is used.
+         <p>
+         Production:
+         <pre>
+             <code>
+object CallCenter {
 
-  def receive = {
-    case WhoToGreet(who) => greeting = s"hello, $who"
-    case Greet           => sender ! Greeting(greeting)
+      ...
+    
+      def apply(company: ActorRef) = {
+        new CallCenter(company) with ProdAgentSupervisorProvider with ProdRoutingProvider
+      }
+}
+              </code>
+          </pre>
+          Test:
+          <pre>
+             <code>
+object CallCenter {
+
+      ...
+    
+      def apply(company: ActorRef) = {
+        new CallCenter(company) with TestAgentSupervisorProvider with TestRoutingProvider
+      }
+}
+
+...
+val company = system.actorOf(Props(Company()), "Company")
+val callCenter = system.actorOf(Props(CallCenter(company)), "CallCenter")
+              </code>
+          </pre>
+          </p>
+        </li>
+    </ul> 
+   </p>
+   <h4><b>Akka Asynchronous Call Pattern</b></h4>
+   <p>The <code>DefaultRouting</code>-class uses the Asynchronous Call Pattern, 
+   described in Jamie Allen's Book "Effective Akka" to determine the Agent Supervisor for calculating
+   a routing strategy. 
+   For each agent supervisor department a separate anonymous actor is used to determine whether
+   the working time of the department is within the range of the current time. 
+   If all departments are checked the <code>businessHourCheckComplete</code>-method
+   finishes with the inforation of the still working departments. 
+   The <code>RouteAccordingToBusinessHours</code>-message checks whether the computed department
+   according the call number is still open for business and sends the referenced agent supervisor
+   the message to route the call to the appropriate agent.
+   <pre>
+       <code>
+class DefaultRouting(callCenter: ActorRef, agentSuperVisors: Map[String, ActorRef], deptNames: Seq[String]) extends Routing with Actor with ActorLogging {
+  import Routing._
+  import Company.IsDuringBusinessHours
+  import DepartmentBase.generalDept
+
+  def receive: Receive = {
+    case Route(callNbr: CallNumber, forSkill: Skill) =>
+      val originalSender = self
+      // Calculate the responsible department
+
+      val department = callNbr.selectDepartment(deptNames)
+
+      val agentSupervisorInfo = (department, agentSuperVisors(department))
+
+      agentSupervisorInfo match {
+        //case (_, EscalationSupervisor) => callCenter ! play music for correct service numbers
+        case (_, _) =>
+
+          val callDuringBusinessHoursActor = context.actorOf(Props(new Actor with ActorLogging {
+
+            var duringBusinessHours: Map[String, Boolean] = Map()
+
+            def receive = {
+              case DepartmentBase.DuringBusinessHours(deptName, isDuringBusiness) =>
+                duringBusinessHours += (deptName -> isDuringBusiness)
+                businessHourCheckComplete
+              case BusinessHourCheckTimeout =>
+                sendResponseAndShutdown(BusinessHourCheckTimeout)
+            }
+
+            def businessHourCheckComplete() = {
+              val duringBusinessHourKeys = duringBusinessHours.keys.toList
+              val complete = (agentSuperVisors.keys.size == duringBusinessHourKeys.size) &&
+                (true /: agentSuperVisors.keys) { (res, deptName) =>
+                  {
+                    if (duringBusinessHourKeys.contains(deptName))
+                      res && true
+                    else
+                      res && false
+                  }
+                }
+              if (complete) {
+                timeoutMessager.cancel
+                sendResponseAndShutdown(RouteAccordingToBusinessHours(agentSuperVisors, agentSupervisorInfo,
+                  duringBusinessHours, forSkill))
+              }
+            }
+
+            def sendResponseAndShutdown(response: Any) = {
+              originalSender ! response
+              log.debug("Stopping context capturing actor for businessHourCheck")
+              context.stop(self)
+            }
+
+            import context.dispatcher
+            val timeoutMessager = context.system.scheduler.scheduleOnce(250 milliseconds) {
+              self ! BusinessHourCheckTimeout
+            }
+          }))
+
+          val date = new Date()
+
+          agentSuperVisors.keys foreach {
+            deptName => callCenter.tell(Company.IsDuringBusinessHours(deptName, date), callDuringBusinessHoursActor)
+          }
+
+      }
+
+    case RouteAccordingToBusinessHours(agentSuperVisors: Map[String, ActorRef],
+      agentSupervisor: (String, ActorRef), duringBusinessHours: Map[String, Boolean],
+      forSkill: Skill) =>
+      duringBusinessHours(agentSupervisor._1) match {
+
+        case true => agentSupervisor._2 ! RoutingStrategyProvider.Route(forSkill)
+        case false => agentSuperVisors.filter(supervisor => duringBusinessHours(supervisor._1)).headOption.map(_._2).getOrElse(agentSuperVisors(generalDept)) ! RoutingStrategyProvider.Route(forSkill)
+      }
   }
+
 }
-        </code></pre>
-    </p>
-    <p>
-    You will notice one difference to the Java version: here we do not
-    explicitly pass unhandled messages to the <code>unhandled()</code> method.
-    This is not necessary since the behavior defined by the
-    <code>receive</code> method is expressed as a so-called <em>partial
-      function</em>, which means that all messages for which no matching
-    <code>case</code> statement is written down will be recognized as being not
-    handled and Akka will automatically pass them to the
-    <code>unhandled()</code> method for you.
-    </p>
-    <p>
-    Another difference is that the trait from which the Scala actor inherits is just called
-    <code>Actor</code>. This is the Scala API while <code>UntypedActor</code> is the Java API
-    for the same kind of actor.
-    </p>
+       </code>
+   </pre>
+   </p>
+   <h4><b>Akka Actor Hierarchy</b></h4>
+   <p>A <code>CallCenter</code>-object is designed as the root in the actor-hierarchy. For the children of
+       <code>AgentSupervisor</code>'s it is using its own restart strategy instead of the normal strategy to 
+       restart every single child. 
+       it uses the strategy to stop every node in the case of exception. This can easily be changed to the default 
+       if the following code-block is removed:
+       <pre>
+           <code>
+override val supervisorStrategy = OneForOneStrategy() {
+    case _: ActorInitializationException => Stop
+    case _: ActorKilledException => Restart
+    case _: Exception => Resume
+    case _ => Resume
+}              
+           </code>
+       </pre>
+   </p>
+   <h4><b>Messages</b></h4>
+   <p>A <code>CallCenter</code> has the following messages:
+       <ul>
+           <li><code>Company.GiveSkillsForDepartment(deptName)</code>: 
+           An <code>AgentSupervisor</code> sends this message in order to build the agent skill sets. The
+           message is forwarded to the company.
+           </li>
+           <li><code>Company.IsDuringBusinessHours(deptName, date)</code>
+           The <code>DefaultRouting</code> object sends this message in order to determine whether
+           the call is during the business hours of the department. The
+           message is forwarded to the company.
+           </li>
+           <li><code>CustomerCall(callNbr: CallNumber, forSkill: Skill)</code>: 
+           A customer call message is sent by the <code>Main</code>-class and defines the starting
+           point of the process.
+           </li>
+       </ul>
+   </p>
 </div>
 
 <div>
-    <h2>Create our Actor</h2>
-
-    <p>
-    So far we have defined our Actor and its messages. Now let's create an instance of this actor. In Akka you can't
-    create an instance of an Actor the regular way using <code>new</code>, instead you create it using a factory. What is
-    returned from this factory is not an instance of the Actor itself but an <code>ActorRef</code> pointing to our actor
-    instance.
+    <h2>Agent</h2>
+    <p><h3>Business Context</h3></p>
+    <p>An agent offers services (mostly "call services") for private or company customers. One distinguishes between 
+    inbound or passive services and outbound or active services. Whereas inbound means that the agent is reacting
+    to a call, for outbound the agent actively calls by himself and offers his services. 
+    <br/>The current activator template only handles inbound calls.<br/>
+    <p>According the business she works in every agent has preferred subjects called skills. 
+    A skill is combined with a skill priority to make routing of incoming calls to agents possible. 
     </p>
-    <p>
-    This level of indirection adds a lot of power and flexibility. It enables for example location transparency
-    meaning that the <code>ActorRef</code> can, while retaining the same semantics, represent an instance of the running actor
-    in-process or on a remote machine. I.e. location doesn't matter. This also means that the runtime can if needed
-    optimize the system by changing an actor's location or the application's topology while it is running. Another
-    thing that this level of indirection enables is the "let it crash" model of failure management in which the
-    system can heal itself by crashing and restarting faulty actors.
-    </p>
-    <p>
-    This factory in Akka is the <code>ActorSystem</code> and is to some extent similar to Spring's <code>BeanFactory</code>
-    in that it also acts as a container for your Actors, managing their life-cycles etc.  You create an Actor through the
-    <code>actorOf</code> factory method. This method takes a configuration object called <code>Props</code> and a name.
-    Actor (and ActorSystem) names are important in Akka, you use them for example when looking Actors up as well as when you
-    configure them in the <a href="http://doc.akka.io/docs/akka/2.2.0/general/configuration.html">configuration
-    file</a>, so you should take your time giving your Actors good names.
-    </p>
-    <p>
-    This is the code that we have to write in Java:
+   <p><h3>Technical Details</h3></p>
+   <h4><b>General</b></h4>
+   <p>A callcenter agent is implemented as an Akka Actor with simple state semantics. The state management is mapped 
+   by the Akka <a href="http://doc.akka.io/docs/akka/snapshot/scala/actors.html#become-unbecome">become/unbecome</a>
+   feature. That means that by default an agent's <code>receive</code>-method maps to one of the 
+   methods <code>handleSpecificTask</code> or <code>handleCall</code>. If routing sends the handleCall-message 
+   a one-time scheduled job is started to send <code>takeCall</code> during a scheduled time in the future which simulates 
+   the amount of time the agent works on the call. 
+   At the same time the <code>receive</code>-method is thread-safely replaced inside the single-threaded actor by 
+   the new behaviour which triggers the state change. 
+   </p>
+   <p></p>
+   <h4><b>Messages</b></h4>
+   <p>An <code>Agent</code>-object has the following messages it can react to:
+       <ul>
+           <li><code>TakeCall(forSkill: Skill, skillPriorities: List[SkillPriority])</code>: 
+           This method is responsible for accepting a call for the questioned skill <code>forSkill</code> and 
+           the skill priorities <code>skillPriorities</code> by a <code>RoutingStrategyProvider</code> The skill priorities are used by the asked agent 
+           to give the asking skill based routing strategy provider feedback to recalculate a new agent if she is currently 
+           busy. In this case the <code>CallNotHandled</code> message is send to the calling routing strategy provider.   
+           </li>
+           <li><code>HandleCall(forSkill: Skill, resultReceiver: ActorRef)</code>: 
+           This method is responsible for handling a call for the questioned skill <code>forSkill</code> and 
+           the receiver <code>resultReceiver</code> (the <code>RoutingStrategyProvider</code>). 
+           The result receiver gets informed by sending it the message <code>CallHandled</code>. 
+           </li>
+       </ul>
+   </p>
+   <h4><b>Telephone answer agent</b></h4>
+   <p>In case the routing strategy provider may not find an agent to whom a call might be routed 
+   the call is routed to a <code>TelephoneAnswerAgent</code>.   
+   </p>
+   <h4><b>Configuration</b></h4>
+   <p>Agents are configurable. A typical agent configuration looks like:
         <pre><code>
-// Java code
-
-final ActorSystem system = ActorSystem.create("helloakka");
-final ActorRef greeter = system.actorOf(Props.create(Greeter.class), "greeter");
-        </code></pre>
-    </p>
-    <p>
-    The Scala code is not much different:
-        <pre><code>
-// Scala code
-
-val system = ActorSystem("helloakka")
-val greeter = system.actorOf(Props[Greeter], "greeter")
-          </code></pre>
-    </p>
-    <p>
-    Now we have a running instance of a <code>Greeter</code> actor. Next we will learn how to communicate with it.
-    </p>
+com {
+    akka {
+          agents { 
+      		SERVICE =
+	      		[[ServiceAgent1, {General = 1, General1 = 3}],
+	      		 [ServiceAgent2, {General = 3, General1 = 1}],
+	      		 [ServiceAgent3, {General = 2, General1 = 2}],
+	      		 [ServiceAgent4, {General = 3, General1 = 3}],
+	      		 [ServiceAgent5, {General = 2, General1 = 2}]]
+      	}
+     }
+}
+}</code></pre>
+    An agent is configured per department (in this example "Service") with department specific skills and skill priorities. 
+   </p>
 </div>
 
 <div>
-    <h2>Tell the Actor (to do something)</h2>
-
+    <h2>Agent Supervisor</h2>
+    <p><h3>Business Context</h3></p>
     <p>
-    All communication with Actors is done through asynchronous message passing. This is what makes Actors
-    reactive and event driven. An Actor doesn't do anything unless it's been told to do something, and you
-    tell it to do something by sending the message. Sending a message asynchronously means that the sender
-    does not stick around waiting for the message to be processed by the recipient actor. Instead the Actor
-    hands the message off by putting it on the recipient's mailbox and is then free to do something more
-    important than waiting for the recipient to react on the message. The actor's mailbox is essentially a
-    message queue and has ordering semantics, this guarantees that the ordering of multiple messages sent
-    from the same Actor is preserved, while they can be interleaved with the messages sent by another actor.
-    </p>
-    <p>
-    You might be wondering what the Actor is doing when it is not processing messages, i.e. doing actual work?
-    It is in a suspended state in which it does not consume any resources apart from memory.
-    </p>
-    <p>
-    You tell an Actor to do something by passing in a message into the <code>tell</code> method on the
-    <code>ActorRef</code>. This method puts the message on the actor's mailbox and then returns immediately.
-    </p>
-    <p>
-        <pre><code>
-// Java code
-
-greeter.tell(new WhoToGreet("akka"), ActorRef.noSender());
-        </code></pre>
-    </p>
-    <p>
-        <pre><code>
-// Scala code
-
-greeter.tell(WhoToGreet("akka"), ActorRef.noSender)
-        </code></pre>
-    </p>
-    <p>
-    If you are using Akka from Scala then you can also use the alias; <code>!</code>, called the bang operator.
-        <pre><code>
-// Scala code
-
-greeter ! WhoToGreet("akka")
-        </code></pre>
-    </p>
-</div>
-
-<div>
-    <h2>Replying to an Actor</h2>
-
-    <h3>The 'self' reference</h3>
-
-    <p>
-    Sometimes the the communication pattern is not just a one-way style of communication but instead lends
-    itself towards request-reply. One explicit way of doing that is by adding a reference of yourself as part
-    of the message so the receiver can use that reference to send a reply back to you. This is such a common
-    scenario that it is directly supported by Akka; for every message you send you have the option of passing
-    along the sender reference (the Actor's <code>ActorRef</code>).  If you are sending a message from within
-    an Actor then you have access to your own <code>ActorRef</code> through <code>self</code> reference, please
-    note that you should never use <code>this</code>. In Java you can access the self reference through the
-    <code>getSelf()</code> method, while you can use <code>self</code> in Scala.
-    </p>
-    <p>
-        <pre><code>
-// Java code
-
-// From within an Actor
-greeter.tell(new Greet(), getSelf());
-        </code></pre>
-    </p>
-    <p>
-    In Scala this is simplified a bit. Scala has something called
-    <a href="http://www.scala-lang.org/node/114">implicit parameters</a> which allows you to automatically and
-    transparently pass in parameters into methods, a feature that we are taking advantage of here to automatically
-    pass along the sender reference when you send a message to another Actor.
-    </p>
-    <p>
-    This code will, if invoked from within Actor 'A' automatically pass along the <code>ActorRef</code> of
-    Actor 'A' as the sender of this message:
-        <pre><code>
-// Scala code
-
-// From within an Actor
-greeter ! Greet
-        </code></pre>
-    </p>
-    <p>
-    If you choose not to pass in a sender reference into the <code>tell</code> method, or forget it, then a reference to
-    the 'dead-letter' Actor will be used. The 'dead-letter' Actor is where all unhandled messages end up, and
-    you can use Akka's <a href="http://doc.akka.io/docs/akka/2.2.0/java/event-bus.html">Event Bus</a> to subscribe on them.
-    </p>
-
-    <h3>The 'sender' reference</h3>
-
-    <p>
-    This sender reference will then be available in the receiver Actor when it's processing the message. Since
-    each message is paired with its unique sender reference, the "current" sender reference will change with each
-    new message you process. So if you for some reason need to use a specific sender reference later then you have
-    to hold on to it, storing it away in a member field or similar. In Java you can access it using the
-    <code>getSender()</code> method (while you can use <code>sender</code> in Scala).
-    </p>
-    <p>
-        <pre><code>
-// Java code
-
-// From within the Greeter Actor
-getSender().tell(new Greeting(greeting), getSelf());
-        </code></pre>
-    </p>
-    <p>
-        <pre><code>
-// Scala code
-
-// From within the Greeter Actor
-sender ! Greeting(greeting)
-        </code></pre>
-    </p>
-</div>
-
-<div>
-    <h2>Using Inbox</h2>
-
-    <p>
-    Most real-world Actor applications make use of more than one Actor. The inventor of the Actor Model,
-    Carl Hewitt, recently said in an interview that; "One Actor is no Actor. Actors come in systems."
-    This is important wisdom. To truly leverage the Actor Model you should use lots of Actors. Every hard
-    problem in Actor programming can be solved by adding more Actors; by breaking down the problem into
-    subtasks and delegate by handing them to new Actors.
-    </p>
-    <p>
-    However, for simplicity we are just using a single Actor in this sample. This means that if we communicate
-    with this single actor from a <code>main</code> program then we have no <code>sender</code>, since we are
-    not communicating with the Actor from within another Actor. Luckily Akka has a nice solution to this problem;
-    <code>Inbox</code>.
-    </p>
-    <p>
-    <code>Inbox</code> allows you to create an "actor-in-a-box", i.e. it contains an Actor which can be used as a puppet
-    for sending messages to other Actors and receiving their replies. You can create an <code>Inbox</code> using
-    <code>Inbox.create</code> and send messages from it using <code>inbox.send</code>. The internal Actor will just
-    put any message it receives into a queue from which it can be retrieved by calling <code>inbox.receive</code>;
-    if the queue is empty then that call will block until a message becomes available. Pretty simple.
-    </p>
-    <p>
-    As you probably know, blocking is something that can really inhibit performance and scalability, and that
-    you should use very sparingly and with care. That said, we are making use of it in this sample since it
-    simplifies the sample and makes it very easy to follow the message flow.
-    </p>
-    <p>
-    Now let's complete this tutorial by writing the driver code that will exercise our <code>Greeter</code> Actor.
-    </p>
-    <p>
-        <pre><code>
-// Java code
-
-// Create an "actor-in-a-box"
-final Inbox inbox = Inbox.create(system);
-
-// Tell the 'greeter' to change its 'greeting' message
-greeter.tell(new WhoToGreet("akka"), ActorRef.noSender());
-
-// Ask the 'greeter for the latest 'greeting'
-// Reply should go to the mailbox
-inbox.send(greeter, new Greet());
-
-// Wait 5 seconds for the reply with the 'greeting' message
-Greeting greeting = (Greeting) inbox.receive(Duration.create(5, "seconds"));
-System.out.println("Greeting: " + greeting.message);
-        </code></pre>
-    </p>
-    <p>
-        <pre><code>
-// Scala code
-
-// Create an "actor-in-a-box"
-val inbox = Inbox.create(system)
-
-// Tell the 'greeter' to change its 'greeting' message
-greeter tell WhoToGreet("akka")
-
-// Ask the 'greeter for the latest 'greeting'
-// Reply should go to the mailbox
-inbox.send(greeter, Greet)
-
-// Wait 5 seconds for the reply with the 'greeting' message
-val Greeting(message) = inbox.receive(5.seconds)
-println(s"Greeting: $message")
-        </code></pre>
-    </p>
-</div>
-
-<div>
-    <h2>Test the App</h2>
-
-    <p>
-    Both the Java and Scala examples each have unit tests in the <a href="#code/src/test" class="shortcut">test</a>
-    directory.  The <a href="#code/src/test/java/HelloAkkaTest.java" class="shortcut">Java tests</a> use JUnit, while
-    the <a href="#code/src/test/scala/HelloAkkaSpec.scala" class="shortcut">Scala tests</a> use ScalaTest.
-    </p>
-    <p>
-    Both of these tests are making use of the excellent Akka
-    <a href="http://doc.akka.io/docs/akka/2.2.0/scala/testing.html" target="_blank">TestKit</a> module,
-    which makes it so much easier to test and verify concurrent code.
-    </p>
-    <p>
-    Making changes to the sample's source or the test source will cause the tests to be automatically re-run.
-    </p>
-</div>
-
-<div>
-    <h2>Run the App</h2>
-
-    <p>
-        Congratulations!!!
-    </p>
-    <p>
-        Now you have almost completed the tutorial and written a simple Akka application. If you have not looked
-        at the full sample then now is a good time to do so.
+    An Agent Supervisor is responsible for the administration of agents. This includes the following tasks:
     <ul>
-        <li>Java version: <a href="#code/src/main/java/HelloAkkaJava.java" class="shortcut">HelloAkkaJava.java</a></li>
-        <li>Scala version: <a href="#code/src/main/scala/HelloAkkaScala.scala" class="shortcut">HelloAkkaScala.scala</a></li>
+        <li>
+            Provision of agents for handling customer service requests
+        </li>
+        <li>
+            For each agent provision of a skill set, which defines the agent skills and skill priorities. 
+            A skill set is used by a routing strategy to choose an agent for service request
+        </li>
+        <li>
+            Definition of a routing strategy, which allows routing of an incoming service request to an agent. 
+        </li>
     </ul>
-    </p>
-    <p>
-        Let's have some fun and run it.
-    </p>
-    <p>
-        In <a href="#run" class="shortcut">Run</a>, select the application to run from the drop-down list, and select
-        <strong>Start</strong>. Feel free to modify, compile and re-run the sample.
-    </p>
-</div>
-
-<div>
-    <h2>Inspect the App</h2>
-    
-    <p>
-        Use <a href="#inspect" class="shortcut">Inspect</a> to see what is happening with the Actors in a running application.  This will contain a list of the Actors in the Actor System.  Drilling down into an individual Actor will display a number of statistics and information about the Actor.  Deviations will show you any issues with your Actors.
-    </p>
-    
-</div>
-
-<div>
-    <h2>Next Steps</h2>
-
-    <p>
-    The <a href="http://akka.io/docs/" target="_blank">Akka Documentation</a> explains each one of the topics covered
-    in this tutorial in great depth, and much much more.
-    </p>
-    <p>
-    The manual is split up into Java and Scala versions.
+   </p>
+   <p><h3>Technical Details</h3></p>
+   <h4><b>General</b></h4>
+   <p>An <code>AgentSupervisor</code> is designed as an Akka child node in the CallCenter-Actor hierarchy and as such
+   supervised by the <code>CallCenter</code>-supervisor. The <code>AgentSupervisor</code> uses a Scala component 
+   architecture to offer functionalities to provide agents, skill sets and routing strategies. 
+   An <code>AgentSupervisor</code> uses simple state semantics to switch between agent-routing and agent-broadcasting
+   modes.
+   </p>
+   <h4><b>Scala Component Structure</b></h4>
     <ul>
-      <li><a href="http://doc.akka.io/docs/akka/2.2.1/java.html" target="_blank">Java Manual</a></li>
-      <li><a href="http://doc.akka.io/docs/akka/2.2.1/scala.html" target="_blank">Scala Manual</a></li>
-    </ul>
+        <li><b>Self-type annotation</b>: The traits 
+        <code>RoutingStrategyProvider</code>, <code>SkillSetProvider</code> and <code>AgentProvider</code> 
+        are used for the annotation.
+        </li>
+        <li><b>Mixin-Composition</b>: 
+         In order to make the class flexible enough to for example use it in test as well as in production mode
+         mixin-composition is used. For concreate instantiation of an object the traits 
+         <code>SkillBasedBusyAskRoutingStrategyProvider</code>, <code>ConfigSkillSetProvider</code> and
+         <code>AgentProvider</code> are used. The <code>SkillBasedBusyAskRoutingStrategyProvider</code> uses a
+         Akka-future based algorithm to route calls on the base of agent skills to the agents. 
+         The <code>ConfigSkillSetProvider</code> sets up agent skills with the help of the type configuration. 
+         <p>
+         <pre>
+             <code>
+object AgentSupervisor {
+
+  ...
+  def apply(callCenter: ActorRef, department: ActorRef) = new AgentSupervisor(callCenter, department) 
+                        with SkillBasedBusyAskRoutingStrategyProvider with ConfigSkillSetProvider with AgentProvider
+}
+              </code>
+          </pre>
+          </p>
+        </li>
+    </ul> 
+   </p>
+   <h4><b>Akka Actor Hierarchy</b></h4>
+   <p>
+       <p>An <code>AgentSupervisor</code>-object sets up a child actor to supervise the children of 
+       <code>Agent</code>-objects and another child actor <code>TelephoneAnswerAgent</code>
+       which handles unrouted customer requests. 
+       For the children it is using its own <code>OneForOneStrategy</code> 
+       <pre>
+           <code>
+override val supervisorStrategy = OneForOneStrategy() {
+    case _: ActorKilledException => Restart
+    case _: ActorInitializationException => Escalate
+    case _ => Resume
+}               
+           </code>
+       </pre>
+       The child actor for the <code>Agent</code>-objects is an anonymous actor which supervises the 
+       <code>Agent</code>-nodes with its own supervisor-strategy.
+       <pre>
+           <code>
+override val supervisorStrategy = OneForOneStrategy() {
+        case _: ActorKilledException => Restart
+        case _: ActorInitializationException => Stop
+        case _ => Resume
+}               
+           </code>
+       </pre>
+       With this strategy an <code>agent</code>-node is fault tolerant in the sense that it only stops if 
+       something went wrong during initialization.
+   </p>
+   </p>
+   <h4><b>Messages</b></h4>
+   <p>An <code>AgentSupervisor</code>-object has the following messages it can react to:
+       <ul>
+           <li><code>SkillsForDepartment(skills)</code>: 
+           This message is used by the <code>AgentSupervisor</code> itself during the initialization phase
+           to set up the skill set of the department the <code>AgentSupervisor</code> belongs to.
+           </li>
+           <li><code>GetAgentBroadcaster</code>: 
+           Gets send if some object is interested in broadcasting a message to all agents of the 
+           <code>AgentSupervisor</code>. Returns a new <code>BroadcastRouter</code> in front of the agents
+           if the supervisor is in state <code>noRouter</code>. If the supervisor is in state 
+           <code>withRouter</code> the already existing <code>BroadcastRouter</code> captured in the context
+           is returned.
+           </li>
+           <li><code>Children(_, destinedFor)</code>:
+           If in state <code>withRouter</code> the children are requested the <code>BroadcastRouter</code>
+           is returned.
+           </li>
+       </ul>
+   </p>
+   <h4><b>Agent broadcasting</b></h4>
+   <p>The anynonymous child actor, which serves as a supervisor for the childs is also used to
+   send back those childs when requested to support the work of a <code>BroadcastRouter</code>.
+   <pre>
+       <code>
+def noRouter: Receive = {
+    case GetAgentBroadcaster =>
+      import scala.concurrent.ExecutionContext.Implicits.global
+
+      val destinedFor = sender
+      val actor = context.actorFor("AgentSupervisor")
+      (actor ? GetChildren).mapTo[Seq[ActorRef]].map {
+        agents =>
+          (Props().withRouter(BroadcastRouter(agents)),
+            destinedFor)
+      } pipeTo self
+    case (props: Props, destinedFor: ActorRef) =>
+      log.info(s"AgentSupervisor received (${props.toString()},${destinedFor.toString()}) (transforming to withRouter)")
+      val router = context.actorOf(props, "Agents")
+      destinedFor ! AgentBroadcaster(router)
+      context.become(withRouter(router) orElse route)
+       </code>
+}
+   </pre>
+   The creation of the <code>BroadcastRouter</code> is initiated by transformation of the future result
+   of the <code>GetChildren</code>-messsage via the <code>pipeTo</code>-method. The transformation result
+   is send to <code>self</code> with the request-sender as a parameter.
+   </p>
+</div>
+<div>
+    <h2>Company</h2>
+    <p><h3>Business Context</h3></p>
+    <p>In the context of a call center the company manages departments. A department has working times 
+    in terms of business hours and is configured with skills.  
+    Skills are requested by customer calls and define the base for 
+    skill based routing offered by the company department related agent supervisor.
     </p>
-    <p>
-    The Akka Team blog; <a href="http://letitcrash.com" target="_blank">Let It Crash</a> has a lot of articles and
-    can be a good additional source of information.<br/>
+   <p><h3>Technical Details</h3></p>
+   <h4><b>General</b></h4>
+   <p>A <code>Company</code> is implemented as an Akka Actor and offers department specific skills. It also
+   gives information about the working times of a department.
+   </p>
+   <h4><b>Scala Component Structure</b></h4>
+    <ul>
+        <li><b>Self-type annotation</b>: The <code>Company</code> uses the trait <code>DepartmentManager</code> 
+        for annotation.
+        </li>
+        <li><b>Mixin-Composition</b>: 
+         For concreate instantiation of an object the trait 
+         <code>StandardDepartmentManager</code> is used. The <code>StandardDepartmentManager</code> uses
+        the configuration mechanism from Typesafe to configure departments and department skills. 
+         <p>
+   <h4><b>Messages</b></h4>
+   <p>A <code>Company</code>-object has the following messages it can react to:
+       <ul>
+           <li><code>GiveSkillsForDepartment(deptName: String)</code>: 
+           Returns the department specific skills to the sender.  
+           </li>
+           <li><code>IsDuringBusinessHours(deptName: String, date: Date)</code>: 
+           Calculates whether the hours of the given date are within the interval
+           of the business hours of the given department.
+           </li>
+       </ul>
+   </p>
+   <h4><b>Configuration</b></h4>
+   <p>Departments are configurable. A typical department configuration looks like:
+    <pre><code>
+com { 
+     akka { 
+ 		company {
+      		departments = [[SALES, 7, 21, {Marketing = 3, Marketing1 = 3}], 
+      		               [TECHNIC, 8, 21, {Technic = 3, Technic1 = 3}],
+      		               [SERVICE, 9, 21, {General = 3, General1 = 3}]
+      		              ]
+      	}
+     }
+}
+}</code></pre> 
+A department configuration is described by name, business hours and department skills and priorities.  
+   </p>
+</div>
+
+<div>
+    <h2>Customer</h2>
+    <p><h3>Business Context</h3></p>
+    <p>Customers are requesting company services through telephone numbers, which are specific to
+    the departments of the company.
     </p>
-    <p>
-    If you have questions don't hesitate to post them to the
-    <a href="http://groups.google.com/group/akka-user" target="_blank">akka-user</a> Google Group.<br/>
-    </p>
+   <p><h3>Technical Details</h3></p>
+   <h4><b>General</b></h4>
+   <p>A <code>Customer</code> is implemented as an Akka Actor and offers call numbers as well as skills which reflect
+   the requested services. The call number related department has to offer the skill the customer requests.
+   </p>
+   <h4><b>Scala Component Structure</b></h4>
+    <ul>
+        <li><b>Self-type annotation</b>: The <code>Customer</code> uses the traits 
+        <code>CallNumberProvider</code> and <code>SkillProvider</code> for annotation.
+        </li>
+        <li><b>Mixin-Composition</b>: 
+         For concreate instantiation of an object the traits 
+         <code>RandomCallNumberProvider</code> and <code>RandomSkillProvider</code> are used to provide random
+         call numbers and skills. 
+         <p>
+   <h4><b>Messages</b></h4>
+   <p>A <code>Customer</code>-object has the following messages it can react to:
+       <ul>
+           <li><code>GetCallNumber</code>: 
+           Returns a call number and a skill to the sender.  
+           </li>
+       </ul>
+   </p>
 </div>
 
 </body>
